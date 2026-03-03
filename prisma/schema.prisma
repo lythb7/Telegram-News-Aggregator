@@ -1,0 +1,62 @@
+generator client {
+  provider      = "prisma-client-js"
+  // Include Linux Alpine binary for Docker builds
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Channel {
+  id               Int        @id @default(autoincrement())
+  telegramUsername String     @unique
+  name             String
+  reliability      Float      @default(5)   // 1.0–10.0, admin-configurable
+  language         String     @default("ar")
+  isActive         Boolean    @default(true)
+  createdAt        DateTime   @default(now())
+  items            NewsItem[]
+}
+
+model NewsCluster {
+  id           Int        @id @default(autoincrement())
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  headline     String?
+  summary      String?
+  category     String?                    // conflict | political | economic | humanitarian | diplomatic | social | other
+  countries    String     @default("[]")  // JSON-encoded string[]
+  actors       String     @default("[]")  // JSON-encoded string[]
+  score        Float      @default(0)     // 0–100
+  channelCount Int        @default(1)
+  isProcessed  Boolean    @default(false)
+  items        NewsItem[]
+  media        Media[]
+}
+
+model NewsItem {
+  id        Int          @id @default(autoincrement())
+  clusterId Int?
+  channelId Int
+  messageId Int
+  text      String
+  timestamp DateTime
+  processed Boolean      @default(false)
+  cluster   NewsCluster? @relation(fields: [clusterId], references: [id])
+  channel   Channel      @relation(fields: [channelId], references: [id])
+  media     Media[]
+
+  @@unique([channelId, messageId])
+}
+
+model Media {
+  id         Int          @id @default(autoincrement())
+  clusterId  Int?
+  newsItemId Int?
+  mediaType  String       // "image" | "video"
+  filePath   String
+  cluster    NewsCluster? @relation(fields: [clusterId], references: [id])
+  newsItem   NewsItem?    @relation(fields: [newsItemId], references: [id])
+}
